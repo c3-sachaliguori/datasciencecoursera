@@ -1,0 +1,80 @@
+---
+title: "Prediction Assignment"
+author: "Sacha Liguori"
+date: "5/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project setting
+```{r setting}
+set.seed(433)
+library(caret)
+library(rpart)
+library(e1071)
+library(rpart.plot)
+library(randomForest)
+```
+
+# Data loading
+
+```{r dataloading}
+training = read.csv("pml-training.csv", na.strings = c("NA", "", "#DIV0!"))
+testing = read.csv("pml-testing.csv", na.strings = c("NA", "", "#DIV0!"))
+head(testing)
+```
+
+# Data preparation
+## Data cleaning
+```{r cleaning}
+sameColumsName <- colnames(training) == colnames(testing)
+colnames(training)[sameColumsName==FALSE]
+training<-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+head(colnames(training))
+```
+
+## Split dataset
+We split seed data 80% for training purpose and 20% for cross validation.
+
+``` {r}
+training <- training[,8:dim(training)[2]]
+testing <- testing[,8:dim(testing)[2]]
+seed_data.full  <- createDataPartition(y = training$classe, p = 0.8, list = F)
+seed_data.train <- training[seed_data.full ,]
+seed_data.validation <- training[-seed_data.full ,]
+
+training_data.full <- createDataPartition(y = seed_data.train$classe, p = 0.75, list = F)
+training_data.train <- seed_data.train[training_data.full,]
+testing_data.validate <- seed_data.train[-training_data.full,]
+```
+
+
+# Model preparation
+
+``` {r}
+qplot(classe, fill = "4", data=training_data.train, main="Distribution of Classes")
+names(training_data.train[,-53])
+model_tree <- rpart(classe ~ ., data=training_data.train, method="class")
+prediction_tree <- predict(model_tree, testing_data.validate, type="class")
+class_tree <- confusionMatrix(prediction_tree, testing_data.validate$classe)
+class_tree
+rpart.plot(model_tree)
+```
+
+## Random Forest
+```{r}
+forest_model <- randomForest(classe ~ ., data=training_data.train, method="class")
+prediction_forest <- predict(forest_model, testing_data.validate, type="class")
+random_forest <- confusionMatrix(prediction_forest, testing_data.validate$classe)
+random_forest
+```
+
+## Prediction validation
+```{r}
+prediction <- predict(forest_model, newdata=testing_data.validate)
+confusionMatrix(prediction, testing_data.validate$classe)
+```
